@@ -1,7 +1,112 @@
-const express = require("express");
+const io = require("socket.io")();
+const { initGame, gameLoop, getUpdatedVelocity } = require("./game");
+const { FRAME_RATE } = require("./constants");
+const { makeid } = require("./utils");
 
-const server = express();
+const state = {};
+const clientRooms = {};
 
-server.listen(3600, function () {
-  console.log("Server running on port 3600");
+io.on("connection", (client) => {
+  client.emit("init", { data: "Hello World" });
+  client.on("keydown", handleKeydown);
+  client.on("newGame", handleNewGame);
+  client.on("joinGame", handleJoinGame);
+
+  // defining this function here to have client access
+
+  function handleJoinGame(roomName) {
+    const room = io.sockets.adapter.rooms[roomName];
+
+    let allUsers;
+    if (room) {
+      // get object of all current users in the room, key-clientId, value-Client
+      allUsers = room.sockets;
+    }
+
+    // get no of clients/players of the room
+    let numClients = 0;
+    if (allUsers) {
+      numClients = Object.keys(allUsers).length;
+    }
+
+    if (numClients === 0) {
+      client.emit("unknownCode");
+      return;
+    } else if (numClients > 1) {
+      client.emit("tooManyPlayers");
+      return;
+    }
+
+    clientRooms[client.id] = roomName;
+
+    client.join(roomName);
+    // define and emit player as 2
+    client.number = 2;
+    client.emit("init", 2);
+
+    startGameInterval(roomName);
+  }
+
+  // create a new room with unique code
+  function handleNewGame() {
+    let roomName = makeid(5);
+
+    // add room code to the clientRooms Obj
+    clientRooms[client.id] = roomName;
+
+    // send room code to the player
+    client.emit("gameCode", roomName);
+
+    state[roomName] = initGame();
+
+    client.join(roomName);
+    client.number = 1;
+    client.emit("init", 1);
+  }
+
+  function handleKeydown(keyCode) {
+    const roomName = clientRooms[client.id];
+    if (!roomName) {
+      return;
+    }
+    try {
+      // get code/number of entered key
+      keyCode = parseInt(keyCode);
+    } catch (e) {
+      console.error(e);
+      return;
+    }
+
+    // get velocity based on keyCode value
+    const vel = getUpdatedVelocity(keyCode);
+
+    if (vel) {
+      state[roomName].players[client.number - 1].vel = vel;
+    }
+  }
 });
+
+function startGameInterval(roomName) {
+  const intervalId = setInterval(() => {
+    const winner = gameLoop(state[roomName]);
+
+    if (!winner) {
+      emitGameState(roomName, state[roomName]);
+    } else {
+      emitGameOver(roomName, winner);
+      state[roomName] = null;
+      clearInterval(intervalId);
+    }
+  }, 1000 / FRAME_RATE);
+}
+
+function emitGameState(room, gameState) {
+  // Emit this event to everyone in the room.
+  io.sockets.in(room).emit("gameState", JSON.stringify(gameState));
+}
+
+function emitGameOver(room, winner) {
+  io.sockets.in(room).emit("gameOver", JSON.stringify({ winner }));
+}
+
+io.listen(process.env.PORT || 3000);
