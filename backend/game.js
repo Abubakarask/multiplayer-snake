@@ -176,9 +176,7 @@ function getUpdatedVelocity(keyCode) {
 }
 
 module.exports = {
-  createGameState,
-  gameLoop,
-  randomFood,
-  getUpdatedVelocity,
   initGame,
+  gameLoop,
+  getUpdatedVelocity,
 };

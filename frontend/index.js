@@ -7,6 +7,7 @@ const socket = io("http://localhost:3000");
 socket.on("init", handleInit);
 socket.on("gameState", handleGameState);
 socket.on("gameOver", handleGameOver);
+socket.on("gameCode", handleGameCode);
 socket.on("unknownCode", handleUnknownCode);
 socket.on("tooManyPlayers", handleTooManyPlayers);
 
@@ -35,29 +36,6 @@ let canvas, ctx;
 let playerNumber;
 let gameActive = false;
 
-const gameState = {
-  player: {
-    pos: {
-      x: 3,
-      y: 10,
-    },
-    vel: {
-      x: 1,
-      y: 0,
-    },
-    snake: [
-      { x: 1, y: 10 },
-      { x: 2, y: 10 },
-      { x: 3, y: 10 },
-    ],
-  },
-  food: {
-    x: 7,
-    y: 7,
-  },
-  grindSize: 20,
-};
-
 function init() {
   initialScreen.style.display = "none";
   gameScreen.style.display = "block";
@@ -77,19 +55,21 @@ function init() {
 function keydown(e) {
   socket.emit("keydown", e.keyCode);
 }
+
 function paintGame(state) {
   ctx.fillStyle = BG_COLOUR;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const food = state.food;
-  const gridSize = state.gridSize;
-  const size = canvas.width / gridSize;
+  const gridsize = state.gridsize;
+  const size = canvas.width / gridsize;
 
   ctx.fillStyle = FOOD_COLOUR;
   ctx.fillRect(food.x * size, food.y * size, size, size);
 
-  //   state.player is object represent snake of player
-  paintPlayer(state.player, size, SNAKE_COLOUR);
+  //   state.player is object representing snake of player
+  paintPlayer(state.players[0], size, SNAKE_COLOUR);
+  paintPlayer(state.players[1], size, "red");
 }
 
 function paintPlayer(playerState, size, colour) {
@@ -109,6 +89,7 @@ function handleGameState(gameState) {
   if (!gameActive) {
     return;
   }
+
   // parsing it as JSON, bcoz we are receiving it as string
   gameState = JSON.parse(gameState);
   requestAnimationFrame(() => paintGame(gameState));

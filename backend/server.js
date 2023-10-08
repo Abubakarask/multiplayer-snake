@@ -7,13 +7,11 @@ const state = {};
 const clientRooms = {};
 
 io.on("connection", (client) => {
-  client.emit("init", { data: "Hello World" });
   client.on("keydown", handleKeydown);
   client.on("newGame", handleNewGame);
   client.on("joinGame", handleJoinGame);
 
   // defining this function here to have client access
-
   function handleJoinGame(roomName) {
     const room = io.sockets.adapter.rooms[roomName];
 
@@ -101,7 +99,7 @@ function startGameInterval(roomName) {
 }
 
 function emitGameState(room, gameState) {
-  // Emit this event to everyone in the room.
+  // Send this event to everyone in the room.
   io.sockets.in(room).emit("gameState", JSON.stringify(gameState));
 }
 
